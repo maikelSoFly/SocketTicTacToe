@@ -1,0 +1,23 @@
+{
+  "name": "tictactoe",
+  "version": "1.0.0",
+  "description": "Online TicTacToe",
+  "main": "server.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "node server.js"
+  },
+  "keywords": [
+    "socket",
+    "tictactoe",
+    "two",
+    "players",
+    "javascript"
+  ],
+  "author": "Mikołaj Stępniewski, Karol Suchoń",
+  "license": "ISC",
+  "dependencies": {
+    "express": "^4.15.2",
+    "socket.io": "^1.7.3"
+  }
+}
