@@ -3,7 +3,7 @@ actionsCounter = 0
 ba = null
 moveDone = false
 blocksInArow = 0
-address = 'http://172.20.10.2:3000'
+address = 'http://192.168.1.5:3000'
 connectedClientsSize = 0
 bottomHeight = w/6
 gridHeight = bottomHeight/6
@@ -63,7 +63,7 @@ function setup(){
         data = {
           blocksInArow: blocksInArow,
         }
-        ba = new BlockArray(w, blockSize)
+
         socket.emit('size', data)
       }
     })
@@ -81,23 +81,27 @@ function setup(){
         data = {
           blocksInArow: blocksInArow,
         }
-        ba = new BlockArray(w, blockSize)
+
         socket.emit('size', data)
       }
     })
 
     socket.on('blocksBeat', function(data) {
 
+      blocksInArow = data.blocksInArow
+      blockSize = w/blocksInArow
+      ba = new BlockArray(w, blockSize)
+
       var iterMax
       if(data.blocks.length > ba.blocks.length)
         iterMax = ba.blocks.length
       else iterMax = data.blocks.length
-        for(var i = 0; i < iterMax; i++) {
-            ba.blocks[i].x = data.blocks[i].x
-            ba.blocks[i].y = data.blocks[i].y
-            ba.blocks[i].active = data.blocks[i].active
-            ba.blocks[i].sign = data.blocks[i].sign
-        }
+      for(var i = 0; i < iterMax; i++) {
+        ba.blocks[i].x = data.blocks[i].x
+        ba.blocks[i].y = data.blocks[i].y
+        ba.blocks[i].active = data.blocks[i].active
+        ba.blocks[i].sign = data.blocks[i].sign
+      }
     })
 
     socket.on('sign', function(data) {
@@ -106,17 +110,13 @@ function setup(){
 
     socket.on('interfaceBeat', function(data) {
         connectedClientsSize = data.clientsCounter
-        if(data.blocksInArow != blocksInArow) {
-          blocksInArow = data.blocksInArow
-          blockSize = w/blocksInArow
-          ba = new BlockArray(w, blockSize)
-        }
-
+        actionsCounter = data.actions
     })
 
     socket.on('turnBeat', function(data) {
       if(data === sign)
         moveDone = false
+      else moveDone = true
     })
 }
 
@@ -143,6 +143,13 @@ function draw(){
 
 	ba.show()
   scoreBoard( 0, 0 )
+
+  if(moveDone == false) {
+    stroke(0,255,0)
+    strokeWeight(8)
+    noFill()
+    rect(4,4,w-8,w-8)
+  }
 }
 
 function resize() {
@@ -182,6 +189,7 @@ function scoreBoard( s1, s2 ) {
     var stP2 = "PLAYER2:   " + s2
     var stActions = "ACTIONS:   " + actionsCounter;
     var stConnected = "CONNECTED:   " + connectedClientsSize;
+    var stSize = "SIZE: " + blocksInArow + "x" + blocksInArow
 
     var stType = "PLAYER"
     if(sign === 'x')
@@ -201,17 +209,19 @@ function scoreBoard( s1, s2 ) {
     fill( 0 )
     textSize( w/30 )
     text( stP1, 8, w+3.5*gridHeight )
-    text( stP2, 8, w+4.5*gridHeight+2 )
+    text( stP2, 8, w+4.5*gridHeight+gridHeight/2 )
     text( stActions, w-textWidth(stActions)-8, w+gridHeight)
-    text( stConnected, w-textWidth(stConnected)-8, w+2*gridHeight+2)
-    text( stType, w-textWidth(stType)-8, w+3*gridHeight+4 )
+    text( stConnected, w-textWidth(stConnected)-8, w+2*gridHeight+4)
+    text( stType, w-textWidth(stType)-8, w+3*gridHeight+8 )
+    text( stSize, w-textWidth(stSize)-8, w+4*gridHeight+12)
 }
 
 function mousePressed() {
     if( mouseX > 0 && mouseX < w && mouseY > 0 && mouseY < w && !moveDone ) {
-        var selectedBlock = ba.getBlock( Math.floor( mouseX/blockSize ),
-        Math.floor( mouseY/blockSize ) )
-        var index = ba.blocks.indexOf(selectedBlock)
+        var indexX = Math.floor( mouseX/blockSize ) //4
+        var indexY = Math.floor( mouseY/blockSize ) //1
+        var index = (blocksInArow) * indexY + indexX
+        console.log("Clicked tile of index: " +index)
 
         var data = {
             index: index,
@@ -219,6 +229,6 @@ function mousePressed() {
         }
 
         socket.emit( 'click', data )
-        moveDone = true;
+
     }
 }

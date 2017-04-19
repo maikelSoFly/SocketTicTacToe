@@ -1,12 +1,14 @@
 var blockArray = []
 var interface
 var isStarted = false
-var clients = []
+var clientsArray = []
 var turn
+var lastSign = 'x'
 
 function Interface(blocksInArow) {
     this.blocksInArow = blocksInArow
     this.clientsCounter = 0
+    this.actions = 0
 }
 
 function Block( x, y ){
@@ -29,7 +31,12 @@ function BlockArray(){
 		return arr
 	}
 
+  this.checkWin = function() {
+
+  }
+
 	this.blocks = this.createBlocksArray()
+  this.blocksInArow = interface.blocksInArow
 }
 
 function Client( id, sign, socket ) {
@@ -51,7 +58,7 @@ function ClientsArray() {
   }
 
   this.printList = function() {
-    console.log()
+    console.log("\n> Connected clients:")
     for(var i = 0; i < this.clients.length; i++) {
       console.log("   " +i+ " " +this.clients[i].id +"   " +this.clients[i].sign)
     }
@@ -79,7 +86,6 @@ function ClientsArray() {
   this.clients = this.createClientsArray()
 }
 
-
 var express = require('express')
 
 var app = express()
@@ -97,32 +103,34 @@ app.use(express.static('public'))
 io = require('socket.io')(server)
 
 
-setInterval(heartbeat, 120);
+setInterval(heartbeat, 30);
 
 
 interface = new Interface( 3 )
 blocksArray = new BlockArray()
-clients = new ClientsArray()
-clients.createClientsArray()
+clientsArray = new ClientsArray()
+
 
 function heartbeat() {
+  if(lastSign === 'x') turn = 'o'
+  else if(lastSign === 'o') turn = 'x'
   io.sockets.emit('blocksBeat', blocksArray);
   io.sockets.emit('interfaceBeat', interface)
   io.sockets.emit('turnBeat', turn)
 }
 
 io.sockets.on('connection', function(socket) {
-    console.log("\nNew client: " + socket.id );
+    console.log("\n> New client: " + socket.id );
 
     socket.on('start', function(data) {
 
       if( interface.clientsCounter === 0 ) var sign = 'x'
       else if( interface.clientsCounter === 1
-        && clients.clients[0].sign === 'x') var sign = 'o'
+        && clientsArray.clients[0].sign === 'x') var sign = 'o'
         else if( interface.clientsCounter === 1
-          && clients.clients[0].sign === 'o') var sign = 'x'
+          && clientsArray.clients[0].sign === 'o') var sign = 'x'
       else if(interface.clientsCounter >= 2 ) var sign = 'spec'
-      clients.addClient( socket.id, sign, socket )
+      clientsArray.addClient( socket.id, sign, socket )
 
       interface.clientsCounter++
 
@@ -132,30 +140,40 @@ io.sockets.on('connection', function(socket) {
         blocksInArow: interface.blocksInArow,
         clientsAmount: interface.clientsCounter
       }
-      clients.printList()
+      clientsArray.printList()
       socket.emit( 'serverCallback', data )
     })
 
     socket.on('click', function(data) { //data: index
+      if(data.index > -1) {
       if(data.sign != 'spec') {
         var selectedBlock = blocksArray.blocks[data.index]
-        if( selectedBlock.active )
+        if( selectedBlock.active ) {
             selectedBlock.switchActivity()
-        if( data.sign === 'x' ) {
-          selectedBlock.sign = 'x'
-          turn = 'o'
-        }
-          else if(data.sign === 'o') {
-            selectedBlock.sign = 'o'
-            turn = 'x'
+            selectedBlock.sign = data.sign
+            lastSign = data.sign
           }
+
       }
+      interface.actions++
+
+      //TODO rysowanie lini, konczenie gry na podstawie checkWin()
+      var result = blocksArray.checkWin()
+      // if(result === 'x') {
+      //
+      // }
+      // else if(result === 'o')
+      // else if(result === 'tie')
+
+      io.sockets.emit('game result', result)
+    }
     })
 
     socket.on('size', function(data) { //data: width, blocksinarow
         interface.blocksInArow = data.blocksInArow
+        blocksArray.blocksInArow = interface.blocksInArow
         blocksArray = new BlockArray()
-        console.log("\nBlocks in a row: " +interface.blocksInArow)
+        console.log("\n> Blocks in a row: " +interface.blocksInArow)
     })
 
     socket.on('reset', function() {
@@ -163,23 +181,24 @@ io.sockets.on('connection', function(socket) {
           blocksArray.blocks[i].active = true
           blocksArray.blocks[i].sign = ''
         }
+        interface.actions = 0
     })
 
     socket.on('disconnect', function() {
-      console.log("\nClient " +socket.id+ " has disconnected");
-      var index = clients.indexOf(socket.id)
-      if(interface.clientsCounter > 2 && clients.clients[index].sign === 'x') {
-        clients.clients[2].sign = 'x'
-        clients.clients[2].socket.emit('sign', 'x')
+      console.log("\n> Client " +socket.id+ " has disconnected");
+      var index = clientsArray.indexOf(socket.id)
+      if(interface.clientsCounter > 2 && clientsArray.clients[index].sign === 'x') {
+        clientsArray.clients[2].sign = 'x'
+        clientsArray.clients[2].socket.emit('sign', 'x')
       }
-      else if(interface.clientsCounter > 2 && clients.clients[index].sign === 'o') {
-        clients.clients[2].sign = 'o'
-        clients.clients[2].socket.emit('sign', 'o')
+      else if(interface.clientsCounter > 2 && clientsArray.clients[index].sign === 'o') {
+        clientsArray.clients[2].sign = 'o'
+        clientsArray.clients[2].socket.emit('sign', 'o')
       }
 
-      clients.removeClient( socket.id )
+      clientsArray.removeClient( socket.id )
       interface.clientsCounter--
-      clients.printList()
+      clientsArray.printList()
     })
 
 })
