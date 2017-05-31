@@ -1,22 +1,32 @@
-w = window.innerWidth
+w = 400
 actionsCounter = 0
 ba = null
 moveDone = false
 blocksInArow = 0
-address = 'http://192.168.1.5:3000'
+address = 'http://0.0.0.0:3000'
 connectedClientsSize = 0
 bottomHeight = w/6
 gridHeight = bottomHeight/6
+first = null
+last = null
+chat = null
+chatWidth = 250
 
 var sign
 var id
 var blockSize
+isWin = false;
 
 var myFont
 var buttonReset
 var buttonPlusSize
 var buttonMinusSize
 var socket
+
+function Message(msg, usr) {
+  this.message = msg
+  this.userName = usr
+}
 
 
 function Player( id ) { //TODO
@@ -39,44 +49,42 @@ function setup(){
     socket.emit('start', data);
     socket.on( 'serverCallback', getInfo)
 
-    createCanvas(w, w+bottomHeight)
+    createCanvas(w+500, w+bottomHeight)
     blockSize = w
     ba = new BlockArray(w, blockSize)
 	  strokeW = 2
-    var btnSize = w/10;
+    var btnSize = 55;
     var startBtnPos = w/2-(btnSize*3+20)/2
 
     buttonReset = createButton( 'RESET' )
     buttonReset.position( startBtnPos, w+0.5*gridHeight )
-    buttonReset.size(btnSize,btnSize-20)
+    buttonReset.size(btnSize,btnSize-30)
     buttonReset.mousePressed( reset )
 
-    buttonPlusSize = createButton( 'SIZE+' )
-    buttonPlusSize.size(btnSize, btnSize-20)
-    buttonPlusSize.position( startBtnPos+10+btnSize, w+0.5*gridHeight )
+    buttonPlusSize = createButton( 'Classic' )
+    buttonPlusSize.size(btnSize, btnSize-30)
+    buttonPlusSize.position( startBtnPos+5+btnSize, w+0.5*gridHeight )
     buttonPlusSize.mouseClicked( function() {
-      if( blocksInArow < 10 && !isStarted() ) {
-          if(blocksInArow+1 != 4)
-              blocksInArow++
-          else blocksInArow += 2
-        blockSize = w/blocksInArow
-        data = {
-          blocksInArow: blocksInArow,
+        if (!isStarted()) {
+            data.isClasic=true;
+            blocksInArow = 3;
+            blockSize = w / blocksInArow
+            data = {
+                blocksInArow: blocksInArow,
+            }
+
+            socket.emit('size', data)
         }
 
-        socket.emit('size', data)
-      }
     })
 
-    buttonMinusSize = createButton( 'SIZE-' )
-    buttonMinusSize.size(btnSize,btnSize-20)
-    buttonMinusSize.position( startBtnPos+20+btnSize*2, w+0.5*gridHeight )
+    buttonMinusSize = createButton( 'Gomoku' )
+    buttonMinusSize.size(btnSize,btnSize-30)
+    buttonMinusSize.position( startBtnPos+10+btnSize*2, w+0.5*gridHeight )
     buttonMinusSize.mouseClicked( function() {
-      if( blocksInArow > 3 && !isStarted() ) {
-        if(blocksInArow-1 != 4)
-            blocksInArow--
-        else blocksInArow -= 2
-
+      if(  !isStarted() ) {
+       blocksInArow=10;
+       data.isClasic=false;
         blockSize = w/blocksInArow
         data = {
           blocksInArow: blocksInArow,
@@ -111,6 +119,9 @@ function setup(){
     socket.on('interfaceBeat', function(data) {
         connectedClientsSize = data.clientsCounter
         actionsCounter = data.actions
+        isWin = data.win.isWin
+        first = data.win.first
+        last = data.win.last
     })
 
     socket.on('turnBeat', function(data) {
@@ -118,6 +129,28 @@ function setup(){
         moveDone = false
       else moveDone = true
     })
+
+//CHAT IMPLEMENTATION
+    var color = {
+      r: 20,
+      g: 50,
+      b: 120
+    }
+
+    chat = new Chat(400,0,chatWidth,w+bottomHeight, socket, color)
+    this.socket.on('MSG_FROM_SERVER', function(data) {
+      chat.messagesArray.push(data)
+    })
+    chat.input.changed(send)
+}
+
+function send() {
+  var chatName
+  if(sign == 'spec') chatName = "Spectator"
+  else chatName = "Player " + sign
+  var msg = new Message(chat.input.value(), chatName)
+  socket.emit('CHAT_MSG', msg)
+  chat.input.value('')
 }
 
 function getInfo(data) {
@@ -132,14 +165,14 @@ function getInfo(data) {
 
   blockSize = w/blocksInArow
   ba = new BlockArray(w, blockSize)
-  createCanvas(w, w+bottomHeight)
+  createCanvas(w+chatWidth, w+bottomHeight)
 }
 
 
 function draw(){
 	background( 200 )
-  if( w != window.innerWidth )
-    resize()
+  // if( w != window.innerWidth )
+  //   resize()
 
 	ba.show()
   scoreBoard( 0, 0 )
@@ -150,6 +183,17 @@ function draw(){
     noFill()
     rect(4,4,w-8,w-8)
   }
+
+  if(isWin) {
+    console.log("WIN!" ,first.x,last.x,first.y,last.y)
+    push()
+    stroke(0,255,0)
+    strokeWeight(5)
+    line(first.x*blockSize+blockSize/2, first.y*blockSize+blockSize/2, last.x*blockSize+blockSize/2, last.y*blockSize+blockSize/2)
+    pop()
+
+  }
+  chat.show()
 }
 
 function resize() {

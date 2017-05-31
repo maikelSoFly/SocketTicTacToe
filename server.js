@@ -1,14 +1,20 @@
-var blockArray = []
+var blocksArray = []
 var interface
 var isStarted = false
 var clientsArray = []
 var turn
 var lastSign = 'x'
+var isClasic=true;
 
 function Interface(blocksInArow) {
     this.blocksInArow = blocksInArow
     this.clientsCounter = 0
     this.actions = 0
+    this.win = {
+      isWin: false,
+      first: null,
+      last: null
+    }
 }
 
 function Block( x, y ){
@@ -21,6 +27,151 @@ function Block( x, y ){
 		this.active = !this.active
 	}
 }
+
+function checkNeighbour(sign, i, j, size, first, last){
+    size--;
+		var firstconteiner=first;
+		var lastconteiner=last;
+        var truewidth=0;
+            for(k=i;;)
+            {
+                k--;
+                if (k>=0&&blocksArray.blocks[k*(interface.blocksInArow)+j].active==false&&blocksArray.blocks[k*(interface.blocksInArow)+j].sign==sign)
+                {
+                    truewidth++;
+                    first=blocksArray.blocks[k*(interface.blocksInArow)+j]
+                }
+                else break;
+                if(i-k>=size)
+                    break;
+                if (truewidth==size)
+                    break;
+            }
+
+            for(k=i;;)
+            {
+                k++;
+                if (k<(interface.blocksInArow)&&blocksArray.blocks[k*(interface.blocksInArow)+j].active==false&&blocksArray.blocks[k*(interface.blocksInArow)+j].sign==sign)
+                {
+                    truewidth++;
+                    last=blocksArray.blocks[k*(interface.blocksInArow)+j];
+                }
+                else break;
+                if(k-i>=size)
+                    break;
+                if (truewidth==size)
+                    break;
+            }
+            if (truewidth==size)
+                return true;
+            truewidth=0;
+			first=firstconteiner;
+			last=lastconteiner;
+            for(k=j;;)
+            {
+                k--;
+
+                if (k>=0&&blocksArray.blocks[i*(interface.blocksInArow)+k].active==false&&blocksArray.blocks[i*(interface.blocksInArow)+k].sign==sign)
+                {
+                    truewidth++;
+                    first=blocksArray.blocks[i*(interface.blocksInArow)+k]
+                }
+                else break;
+                if(j-k>=size)
+                    break;
+                if (truewidth==size)
+                    break;
+            }
+            for(k=j;;)
+            {
+                k++;
+                if (k<(interface.blocksInArow-1)&&blocksArray.blocks[i*(interface.blocksInArow)+k].active==false&&blocksArray.blocks[i*(interface.blocksInArow)+k].sign==sign)
+                {
+                    truewidth++;
+                    last=blocksArray.blocks[i*(interface.blocksInArow)+k]
+                }
+                else break;
+                if(k-j>=size)
+                    break;
+                if (truewidth==size)
+                    break;
+            }
+            if (truewidth==size)
+                return true;
+
+            truewidth=0;
+			first=firstconteiner;
+			last=lastconteiner;
+            for(k=j,h=i;;)
+            {
+                k--;
+                h--;
+                if (k>=0&&h>=0&&blocksArray.blocks[h*(interface.blocksInArow)+k].active==false&&blocksArray.blocks[h*(interface.blocksInArow)+k].sign==sign)
+                {
+                    truewidth++;
+                    first=blocksArray.blocks[h*(interface.blocksInArow)+k]
+                }
+                else break;
+                if(j-k>=size)
+                    break;
+                if (truewidth==size)
+                    break;
+            }
+            for(k=j,h=i;;)
+            {
+                k++;
+                h--;
+                if (k<(interface.blocksInArow)&&h>=0&&blocksArray.blocks[h*(interface.blocksInArow)+k].active==false&&blocksArray.blocks[h*(interface.blocksInArow)+k].sign==sign)
+                {
+                    truewidth++;
+                    last=blocksArray.blocks[h*(interface.blocksInArow)+k]
+                }
+                else break;
+                if(k-j>=size)
+                    break;
+                if (truewidth==size)
+                    break;
+            }
+            truewidth=0;
+			first=firstconteiner;
+			last=lastconteiner;
+            for(k=j,h=i;;)
+            {
+                k++;
+                h++;
+                if (k>=0&&h<interface.blocksInArow&&blocksArray.blocks[h*(interface.blocksInArow)+k].active==false&&blocksArray.blocks[h*(interface.blocksInArow)+k].sign==sign)
+                {
+                    truewidth++;
+                    first=blocksArray.blocks[h*(interface.blocksInArow)+k]
+                }
+                else break;
+                if(j-k>=size)
+                    break;
+                if (truewidth==size)
+                    break;
+            }
+            for(k=j,h=i;;)
+            {
+                k++;
+                h++;
+                if (k<(interface.blocksInArow)&&h<(interface.blocksInArow)&&blocksArray.blocks[h*(interface.blocksInArow)+k].active==false&&blocksArray.blocks[h*(interface.blocksInArow)+k].sign==sign)
+                {
+                    truewidth++;
+                    last=blocksArray.blocks[h*(interface.blocksInArow)+k]
+                }
+                else break;
+                if(k-j>=size)
+                    break;
+                if (truewidth==size)
+                    break;
+            }
+            if (truewidth==size) {
+              //console.log(first.x, first.y, last.x, last.y)
+                return true;
+
+              }
+        return false
+    }
 
 function BlockArray(){
 	this.createBlocksArray = function() {
@@ -86,6 +237,7 @@ function ClientsArray() {
   this.clients = this.createClientsArray()
 }
 
+
 var express = require('express')
 
 var app = express()
@@ -144,29 +296,30 @@ io.sockets.on('connection', function(socket) {
       socket.emit( 'serverCallback', data )
     })
 
-    socket.on('click', function(data) { //data: index
+    socket.on('click', function(data) {
       if(data.index > -1) {
-      if(data.sign != 'spec') {
-        var selectedBlock = blocksArray.blocks[data.index]
-        if( selectedBlock.active ) {
-            selectedBlock.switchActivity()
-            selectedBlock.sign = data.sign
-            lastSign = data.sign
-          }
+          if(data.sign != 'spec') {
+          var selectedBlock = blocksArray.blocks[data.index];
+          var size;
 
-      }
-      interface.actions++
-
-      //TODO rysowanie lini, konczenie gry na podstawie checkWin()
-      var result = blocksArray.checkWin()
-      // if(result === 'x') {
-      //
-      // }
-      // else if(result === 'o')
-      // else if(result === 'tie')
-
-      io.sockets.emit('game result', result)
-    }
+          if( selectedBlock.active ) {
+              var first = selectedBlock
+              var last = selectedBlock
+              selectedBlock.switchActivity()
+              selectedBlock.sign = data.sign
+              lastSign = data.sign
+              if(interface.blocksInArow === 3)  size = 3;
+              else if(interface.blocksInArow === 10)  size = 5;
+			           if(checkNeighbour(selectedBlock.sign, selectedBlock.y, selectedBlock.x, size, first, last)) {
+                    interface.win.isWin = true
+                    interface.win.first = first
+                    interface.win.last = last
+                 }
+                 isStarted = false;
+               }
+             }
+             interface.actions++
+           }
     })
 
     socket.on('size', function(data) { //data: width, blocksinarow
@@ -182,6 +335,12 @@ io.sockets.on('connection', function(socket) {
           blocksArray.blocks[i].sign = ''
         }
         interface.actions = 0
+        interface.win.isWin = false
+    })
+
+    socket.on( 'CHAT_MSG', function( data ) {
+      console.log(data.message)
+      io.sockets.emit('MSG_FROM_SERVER', data)
     })
 
     socket.on('disconnect', function() {
